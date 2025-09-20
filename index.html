@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简易抽奖工具</title>
+    <!-- 引入 Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4F46E5',
+                        secondary: '#10B981',
+                        accent: '#F59E0B',
+                        dark: '#1E293B',
+                        light: '#F8FAFC'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                },
+            }
+        }
+    </script>
+    <!-- 自定义样式 -->
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .text-shadow {
+                text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .text-shadow-lg {
+                text-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            }
+            .bg-gradient-primary {
+                background-image: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+            }
+            .scroll-container {
+                perspective: 1000px;
+                perspective-origin: center;
+            }
+            .animate-roll {
+                animation: roll 0.1s linear infinite;
+            }
+            @keyframes roll {
+                0% {
+                    transform: translateY(0);
+                }
+                100% {
+                    transform: translateY(-20px);
+                }
+            }
+            .transition-custom {
+                transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+    <!-- 顶部导航 -->
+    <header class="bg-white shadow-sm py-4 px-6">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-gift text-primary text-2xl"></i>
+                <h1 class="text-2xl font-bold text-gray-800">简易抽奖工具</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button id="theme-toggle" class="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                    <i class="fa fa-moon-o text-gray-600"></i>
+                </button>
+                <button id="fullscreen-toggle" class="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                    <i class="fa fa-expand text-gray-600"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="flex-grow container mx-auto px-4 py-8">
+        <!-- 导入名单区域 -->
+        <section class="mb-8 bg-white rounded-xl shadow-md p-6 transition-custom hover:shadow-lg">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+                <i class="fa fa-users text-primary mr-2"></i>
+                导入抽奖名单
+            </h2>
+            <div class="grid md:grid-cols-2 gap-6">
+                <!-- 文本输入区域 -->
+                <div>
+                    <label for="name-list" class="block text-sm font-medium text-gray-700 mb-2">手动输入名单（每行一个名字）</label>
+                    <textarea id="name-list" rows="6" placeholder="请输入参与抽奖的人员名单，每行一个名字..." 
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"></textarea>
+                    <div class="flex justify-end mt-2">
+                        <button id="add-names" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors flex items-center">
+                            <i class="fa fa-plus-circle mr-2"></i>
+                            添加名单
+                        </button>
+                    </div>
+                </div>
+                <!-- 文件上传区域 -->
+                <div>
+                    <label for="file-upload" class="block text-sm font-medium text-gray-700 mb-2">上传名单文件（支持 .txt 或 .csv 格式）</label>
+                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer" id="upload-area">
+                        <input id="file-upload" type="file" accept=".txt,.csv" class="hidden">
+                        <i class="fa fa-cloud-upload text-4xl text-gray-400 mb-3"></i>
+                        <p class="text-gray-500 mb-2">点击或拖拽文件到此处上传</p>
+                        <p class="text-xs text-gray-400">支持 .txt 或 .csv 格式文件</p>
+                    </div>
+                    <div id="file-info" class="mt-3 hidden">
+                        <div class="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                            <div class="flex items-center">
+                                <i class="fa fa-file-text-o text-primary mr-2"></i>
+                                <span id="file-name" class="text-sm text-gray-700 truncate"></span>
+                            </div>
+                            <button id="remove-file" class="text-red-500 hover:text-red-700 transition-colors">
+                                <i class="fa fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- 名单统计信息 -->
+            <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                <div class="flex flex-wrap gap-4 text-sm">
+                    <div class="flex items-center">
+                        <span class="inline-block w-3 h-3 rounded-full bg-blue-500 mr-2"></span>
+                        <span>总人数：</span>
+                        <span id="total-count" class="font-semibold ml-1">0</span>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="inline-block w-3 h-3 rounded-full bg-green-500 mr-2"></span>
+                        <span>剩余人数：</span>
+                        <span id="remaining-count" class="font-semibold ml-1">0</span>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="inline-block w-3 h-3 rounded-full bg-yellow-500 mr-2"></span>
+                        <span>已中奖人数：</span>
+                        <span id="winners-count" class="font-semibold ml-1">0</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 抽奖区域 -->
+        <section class="mb-8">
+            <div class="bg-white rounded-xl shadow-md overflow-hidden">
+                <!-- 抽奖结果显示 -->
+                <div class="scroll-container bg-gradient-primary p-8 text-center" id="drawing-area">
+                    <div id="name-display" class="text-[clamp(2rem,8vw,5rem)] font-bold text-white text-shadow-lg h-32 flex items-center justify-center">
+                        准备开始
+                    </div>
+                </div>
+                <!-- 抽奖控制按钮 -->
+                <div class="p-6 flex justify-center space-x-6">
+                    <button id="start-draw" class="px-8 py-4 bg-primary text-white rounded-full text-xl font-bold shadow-lg hover:shadow-xl hover:bg-primary/90 focus:ring-4 focus:ring-primary/30 transition-custom disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fa fa-play-circle mr-2"></i>
+                        开始抽奖
+                    </button>
+                    <button id="stop-draw" class="px-8 py-4 bg-red-500 text-white rounded-full text-xl font-bold shadow-lg hover:shadow-xl hover:bg-red-600 focus:ring-4 focus:ring-red-300 transition-custom disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        <i class="fa fa-stop-circle mr-2"></i>
+                        停止抽奖
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 中奖名单区域 -->
+        <section class="bg-white rounded-xl shadow-md p-6 transition-custom hover:shadow-lg">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+                <i class="fa fa-trophy text-accent mr-2"></i>
+                中奖名单
+            </h2>
+            <div id="winners-list" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <!-- 中奖名单将在这里动态生成 -->
+                <div class="col-span-full text-center text-gray-500 py-8">
+                    <i class="fa fa-gift text-4xl mb-3 text-gray-300"></i>
+                    <p>暂无中奖记录</p>
+                </div>
+            </div>
+            <!-- 重置抽奖按钮 -->
+            <div class="mt-6 flex justify-center">
+                <button id="reset-draw" class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center">
+                    <i class="fa fa-refresh mr-2"></i>
+                    重置抽奖
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-gray-800 text-white py-6 px-4">
+        <div class="container mx-auto text-center">
+            <p>&copy; 2025 简易抽奖工具 | 财小助</p>
+        </div>
+    </footer>
+
+    <!-- 抽奖动画遮罩 -->
+    <div id="fullscreen-overlay" class="fixed inset-0 bg-black bg-opacity-90 z-50 flex flex-col items-center justify-center hidden">
+        <div class="text-[clamp(3rem,15vw,8rem)] font-bold text-white text-shadow-lg h-64 flex items-center justify-center">
+            <div id="fullscreen-name" class="text-center">准备开始</div>
+        </div>
+        <div class="mt-8 flex space-x-6">
+            <button id="fullscreen-start" class="px-10 py-5 bg-primary text-white rounded-full text-2xl font-bold shadow-lg hover:shadow-xl hover:bg-primary/90 transition-custom">
+                <i class="fa fa-play-circle mr-3"></i>
+                开始抽奖
+            </button>
+            <button id="fullscreen-stop" class="px-10 py-5 bg-red-500 text-white rounded-full text-2xl font-bold shadow-lg hover:shadow-xl hover:bg-red-600 transition-custom" disabled>
+                <i class="fa fa-stop-circle mr-3"></i>
+                停止抽奖
+            </button>
+        </div>
+        <button id="exit-fullscreen" class="absolute top-6 right-6 text-white text-4xl opacity-70 hover:opacity-100 transition-opacity">
+            <i class="fa fa-times"></i>
+        </button>
+    </div>
+
+    <!-- 工具提示 -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center">
+        <i id="toast-icon" class="fa fa-check-circle mr-2"></i>
+        <span id="toast-message"></span>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        // 数据存储
+        const appState = {
+            allNames: [],
+            remainingNames: [],
+            winners: [],
+            isDrawing: false,
+            drawingInterval: null,
+            currentName: '准备开始'
+        };
+
+        // DOM 元素
+        const elements = {
+            nameList: document.getElementById('name-list'),
+            addNames: document.getElementById('add-names'),
+            fileUpload: document.getElementById('file-upload'),
+            uploadArea: document.getElementById('upload-area'),
+            fileInfo: document.getElementById('file-info'),
+            fileName: document.getElementById('file-name'),
+            removeFile: document.getElementById('remove-file'),
+            totalCount: document.getElementById('total-count'),
+            remainingCount: document.getElementById('remaining-count'),
+            winnersCount: document.getElementById('winners-count'),
+            nameDisplay: document.getElementById('name-display'),
+            startDraw: document.getElementById('start-draw'),
+            stopDraw: document.getElementById('stop-draw'),
+            winnersList: document.getElementById('winners-list'),
+            resetDraw: document.getElementById('reset-draw'),
+            fullscreenToggle: document.getElementById('fullscreen-toggle'),
+            fullscreenOverlay: document.getElementById('fullscreen-overlay'),
+            fullscreenName: document.getElementById('fullscreen-name'),
+            fullscreenStart: document.getElementById('fullscreen-start'),
+            fullscreenStop: document.getElementById('fullscreen-stop'),
+            exitFullscreen: document.getElementById('exit-fullscreen'),
+            themeToggle: document.getElementById('theme-toggle'),
+            toast: document.getElementById('toast'),
+            toastIcon: document.getElementById('toast-icon'),
+            toastMessage: document.getElementById('toast-message')
+        };
+
+        // 初始化
+        function init() {
+            bindEvents();
+            updateCounters();
+            renderWinnersList();
+        }
+
+        // 绑定事件
+        function bindEvents() {
+            // 手动添加名单
+            elements.addNames.addEventListener('click', handleAddNames);
+            
+            // 文件上传
+            elements.uploadArea.addEventListener('click', () => elements.fileUpload.click());
+            elements.fileUpload.addEventListener('change', handleFileUpload);
+            elements.removeFile.addEventListener('click', handleRemoveFile);
+            
+            // 拖拽上传
+            elements.uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                elements.uploadArea.classList.add('border-primary');
+            });
+            
+            elements.uploadArea.addEventListener('dragleave', () => {
+                elements.uploadArea.classList.remove('border-primary');
+            });
+            
+            elements.uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                elements.uploadArea.classList.remove('border-primary');
+                if (e.dataTransfer.files.length) {
+                    const file = e.dataTransfer.files[0];
+                    if (file.name.endsWith('.txt') || file.name.endsWith('.csv')) {
+                        readFileContent(file);
+                    } else {
+                        showToast('请上传 .txt 或 .csv 格式的文件', 'error');
+                    }
+                }
+            });
+            
+            // 抽奖控制
+            elements.startDraw.addEventListener('click', startDrawing);
+            elements.stopDraw.addEventListener('click', stopDrawing);
+            elements.resetDraw.addEventListener('click', resetDrawing);
+            
+            // 全屏模式
+            elements.fullscreenToggle.addEventListener('click', toggleFullscreenMode);
+            elements.exitFullscreen.addEventListener('click', toggleFullscreenMode);
+            elements.fullscreenStart.addEventListener('click', startDrawing);
+            elements.fullscreenStop.addEventListener('click', stopDrawing);
+            
+            // 主题切换
+            elements.themeToggle.addEventListener('click', toggleTheme);
+        }
+
+        // 处理手动添加名单
+        function handleAddNames() {
+            const text = elements.nameList.value.trim();
+            if (!text) {
+                showToast('请输入名单内容', 'warning');
+                return;
+            }
+            
+            // 按行分割文本
+            const names = text.split('\n')
+                .map(name => name.trim())
+                .filter(name => name);
+            
+            if (names.length === 0) {
+                showToast('请输入有效的名单', 'warning');
+                return;
+            }
+            
+            // 添加到名单中
+            addNamesToPool(names);
+            
+            // 清空输入框
+            elements.nameList.value = '';
+            
+            showToast(`成功添加 ${names.length} 个名字`, 'success');
+        }
+
+        // 处理文件上传
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                if (file.name.endsWith('.txt') || file.name.endsWith('.csv')) {
+                    readFileContent(file);
+                } else {
+                    showToast('请上传 .txt 或 .csv 格式的文件', 'error');
+                    elements.fileUpload.value = '';
+                }
+            }
+        }
+
+        // 读取文件内容
+        function readFileContent(file) {
+            const reader = new FileReader();
+            
+            reader.onload = (e) => {
+                try {
+                    let content = e.target.result;
+                    let names;
+                    
+                    // 根据文件类型处理内容
+                    if (file.name.endsWith('.csv')) {
+                        // CSV 文件处理 - 简单处理，实际应用中可能需要更复杂的解析
+                        names = content.split(/[\r\n,]+/)
+                            .map(name => name.trim())
+                            .filter(name => name);
+                    } else {
+                        // TXT 文件处理
+                        names = content.split('\n')
+                            .map(name => name.trim())
+                            .filter(name => name);
+                    }
+                    
+                    if (names.length > 0) {
+                        addNamesToPool(names);
+                        showFileInfo(file.name);
+                        showToast(`成功从文件中导入 ${names.length} 个名字`, 'success');
+                    } else {
+                        showToast('文件内容为空或格式不正确', 'error');
+                        elements.fileUpload.value = '';
+                    }
+                } catch (error) {
+                    showToast('文件解析失败', 'error');
+                    elements.fileUpload.value = '';
+                }
+            };
+            
+            reader.onerror = () => {
+                showToast('文件读取失败', 'error');
+                elements.fileUpload.value = '';
+            };
+            
+            reader.readAsText(file);
+        }
+
+        // 显示文件信息
+        function showFileInfo(fileName) {
+            elements.fileName.textContent = fileName;
+            elements.fileInfo.classList.remove('hidden');
+        }
+
+        // 移除上传的文件
+        function handleRemoveFile() {
+            elements.fileUpload.value = '';
+            elements.fileInfo.classList.add('hidden');
+        }
+
+        // 添加名字到抽奖池
+        function addNamesToPool(names) {
+            // 合并新名字并去重
+            const uniqueNames = [...new Set([...appState.allNames, ...names])];
+            
+            // 计算新增的名字数量
+            const addedCount = uniqueNames.length - appState.allNames.length;
+            
+            // 更新数据
+            appState.allNames = uniqueNames;
+            
+            // 如果当前没有正在抽奖，更新剩余名单
+            if (!appState.isDrawing) {
+                // 保留已中奖的名字
+                appState.remainingNames = uniqueNames.filter(name => !appState.winners.includes(name));
+            }
+            
+            // 更新界面
+            updateCounters();
+        }
+
+        // 更新计数器
+        function updateCounters() {
+            elements.totalCount.textContent = appState.allNames.length;
+            elements.remainingCount.textContent = appState.remainingNames.length;
+            elements.winnersCount.textContent = appState.winners.length;
+        }
+
+        // 开始抽奖
+        function startDrawing() {
+            if (appState.remainingNames.length === 0) {
+                showToast('请先添加抽奖名单', 'warning');
+                return;
+            }
+            
+            appState.isDrawing = true;
+            
+            // 禁用开始按钮，启用停止按钮
+            elements.startDraw.disabled = true;
+            elements.stopDraw.disabled = false;
+            elements.fullscreenStart.disabled = true;
+            elements.fullscreenStop.disabled = false;
+            
+            // 添加动画效果
+            elements.nameDisplay.classList.add('animate-roll');
+            elements.fullscreenName.classList.add('animate-roll');
+            
+            // 设置抽奖间隔
+            appState.drawingInterval = setInterval(() => {
+                const randomIndex = Math.floor(Math.random() * appState.remainingNames.length);
+                appState.currentName = appState.remainingNames[randomIndex];
+                
+                // 更新显示
+                elements.nameDisplay.textContent = appState.currentName;
+                elements.fullscreenName.textContent = appState.currentName;
+            }, 50); // 每50毫秒更新一次名字
+        }
+
+        // 停止抽奖
+        function stopDrawing() {
+            if (!appState.isDrawing) return;
+            
+            // 清除抽奖间隔
+            clearInterval(appState.drawingInterval);
+            
+            // 禁用停止按钮，启用开始按钮
+            appState.isDrawing = false;
+            elements.startDraw.disabled = false;
+            elements.stopDraw.disabled = true;
+            elements.fullscreenStart.disabled = false;
+            elements.fullscreenStop.disabled = true;
+            
+            // 移除动画效果
+            elements.nameDisplay.classList.remove('animate-roll');
+            elements.fullscreenName.classList.remove('animate-roll');
+            
+            // 添加中奖者
+            if (appState.currentName !== '准备开始') {
+                appState.winners.push(appState.currentName);
+                appState.remainingNames = appState.remainingNames.filter(name => name !== appState.currentName);
+                
+                // 更新界面
+                updateCounters();
+                renderWinnersList();
+                
+                // 显示动画效果
+                showWinnerAnimation();
+            }
+        }
+
+        // 显示中奖动画
+        function showWinnerAnimation() {
+            // 缩放动画
+            elements.nameDisplay.style.transform = 'scale(1.2)';
+            elements.fullscreenName.style.transform = 'scale(1.2)';
+            
+            setTimeout(() => {
+                elements.nameDisplay.style.transform = 'scale(1)';
+                elements.fullscreenName.style.transform = 'scale(1)';
+            }, 500);
+            
+            // 显示提示
+            showToast(`恭喜 ${appState.currentName} 中奖！`, 'success');
+        }
+
+        // 渲染中奖名单
+        function renderWinnersList() {
+            if (appState.winners.length === 0) {
+                elements.winnersList.innerHTML = `
+                    <div class="col-span-full text-center text-gray-500 py-8">
+                        <i class="fa fa-gift text-4xl mb-3 text-gray-300"></i>
+                        <p>暂无中奖记录</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const winnersHtml = appState.winners.map((name, index) => `
+                <div class="bg-gradient-to-br from-primary/10 to-secondary/10 p-4 rounded-lg text-center transition-custom hover:shadow-md">
+                    <div class="inline-flex items-center justify-center w-8 h-8 bg-accent text-white rounded-full text-sm font-bold mb-2">
+                        ${index + 1}
+                    </div>
+                    <p class="font-medium">${name}</p>
+                </div>
+            `).join('');
+            
+            elements.winnersList.innerHTML = winnersHtml;
+        }
+
+        // 重置抽奖
+        function resetDrawing() {
+            // 停止抽奖
+            if (appState.isDrawing) {
+                clearInterval(appState.drawingInterval);
+                appState.isDrawing = false;
+            }
+            
+            // 重置数据
+            appState.remainingNames = [...appState.allNames];
+            appState.winners = [];
+            appState.currentName = '准备开始';
+            
+            // 更新界面
+            elements.nameDisplay.textContent = appState.currentName;
+            elements.fullscreenName.textContent = appState.currentName;
+            elements.nameDisplay.classList.remove('animate-roll');
+            elements.fullscreenName.classList.remove('animate-roll');
+            elements.startDraw.disabled = false;
+            elements.stopDraw.disabled = true;
+            elements.fullscreenStart.disabled = false;
+            elements.fullscreenStop.disabled = true;
+            
+            updateCounters();
+            renderWinnersList();
+            
+            showToast('抽奖已重置，可以重新开始抽奖', 'success');
+        }
+
+        // 切换全屏模式
+        function toggleFullscreenMode() {
+            elements.fullscreenOverlay.classList.toggle('hidden');
+            elements.fullscreenName.textContent = appState.currentName;
+        }
+
+        // 切换主题（简单实现，实际应用中可能需要更复杂的主题系统）
+        function toggleTheme() {
+            const isDark = document.body.classList.toggle('bg-gray-900');
+            const icon = elements.themeToggle.querySelector('i');
+            
+            if (isDark) {
+                document.body.classList.remove('bg-gray-50');
+                icon.classList.remove('fa-moon-o');
+                icon.classList.add('fa-sun-o');
+                showToast('已切换到暗黑模式', 'success');
+            } else {
+                document.body.classList.add('bg-gray-50');
+                document.body.classList.remove('bg-gray-900');
+                icon.classList.remove('fa-sun-o');
+                icon.classList.add('fa-moon-o');
+                showToast('已切换到明亮模式', 'success');
+            }
+        }
+
+        // 显示提示框
+        function showToast(message, type = 'info') {
+            // 设置消息内容
+            elements.toastMessage.textContent = message;
+            
+            // 设置图标
+            elements.toastIcon.className = 'fa mr-2';
+            
+            switch (type) {
+                case 'success':
+                    elements.toastIcon.classList.add('fa-check-circle', 'text-green-400');
+                    break;
+                case 'error':
+                    elements.toastIcon.classList.add('fa-exclamation-circle', 'text-red-400');
+                    break;
+                case 'warning':
+                    elements.toastIcon.classList.add('fa-exclamation-triangle', 'text-yellow-400');
+                    break;
+                default:
+                    elements.toastIcon.classList.add('fa-info-circle', 'text-blue-400');
+            }
+            
+            // 显示提示框
+            elements.toast.classList.remove('translate-y-20', 'opacity-0');
+            elements.toast.classList.add('translate-y-0', 'opacity-100');
+            
+            // 3秒后隐藏提示框
+            setTimeout(() => {
+                elements.toast.classList.remove('translate-y-0', 'opacity-100');
+                elements.toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
